@@ -4,6 +4,7 @@ import apiRunner from "./api-runner-node"
 import { store } from "../redux"
 import { getDataStore, getNode, getNodes } from "../datastore"
 import { actions } from "../redux/actions"
+import { waitUntilIdle } from "../redux/events"
 import { IGatsbyState } from "../redux/types"
 const { deleteNode } = actions
 import { Node } from "../../index"
@@ -97,14 +98,23 @@ export default async ({
   parentSpan?: Span
   deferNodeMutation?: boolean
 }): Promise<void> => {
-  await apiRunner(`sourceNodes`, {
-    traceId: `initial-sourceNodes`,
-    waitForCascadingActions: true,
-    deferNodeMutation,
-    parentSpan,
-    webhookBody: webhookBody || {},
-    pluginName,
-  })
+  if (process.env.GATSBY_EXPERIMENTAL_SOURCERER) {
+    await apiRunner(`defineEvents`, {
+      parentSpan,
+    })
+    // run events
+
+    await waitUntilIdle()
+  } else {
+    await apiRunner(`sourceNodes`, {
+      traceId: `initial-sourceNodes`,
+      waitForCascadingActions: true,
+      deferNodeMutation,
+      parentSpan,
+      webhookBody: webhookBody || {},
+      pluginName,
+    })
+  }
 
   await getDataStore().ready()
 
